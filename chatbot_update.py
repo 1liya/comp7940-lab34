@@ -34,7 +34,7 @@ def main():
     # on different commands - answer in Telegram
     dispatcher.add_handler(CommandHandler("add", add))
     dispatcher.add_handler(CommandHandler("help", help_command))
-    dispatcher.add_handler("hello", Hello)
+    dispatcher.add_handler(CommandHandler("hello", Hello))
     
 
     # register a dispatcher to handle message: here we register an echo dispatcher
