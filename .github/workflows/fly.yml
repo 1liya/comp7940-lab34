@@ -5,7 +5,7 @@ on:
       - main    # change to main if needed
 jobs:
   deploy:
-    name: Deploy app
+    name: comp7940-lab34
     runs-on: ubuntu-latest
     concurrency: deploy-group    # optional: ensure only one action runs at a time
     steps:
