@@ -15,7 +15,7 @@ def main():
     config = configparser.ConfigParser()
     config.read('config.ini')
     
-    # 创建updater实例
+    # Create an Updater instance
     updater = Updater(token=(config['TELEGRAM']['ACCESS_TOKEN']), 
                       use_context=True)
     
@@ -29,11 +29,11 @@ def main():
                          username=(config['REDIS']['USER_NAME']))
    
     # You can set this logging module, so you will know when 
-    # and why things do not work as expected Meanwhile, update your config.ini as:
+    # and why things do not work as expected. Meanwhile, update your config.ini as:
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
                         level=logging.INFO)
     
-    # 注册命令处理程序
+    # Register command handlers
     dispatcher.add_handler(CommandHandler("popular", popular_recipes))
     dispatcher.add_handler(CommandHandler("recipe", recipe_generation))
     dispatcher.add_handler(CommandHandler("detail", recipe_details))
@@ -45,141 +45,140 @@ def main():
     dispatcher.add_handler(CommandHandler("help", help_command))
     dispatcher.add_handler(CommandHandler("delete", delete_recipe)) 
 
-    # 注册消息处理程序
+    # Register message handler
     global chatgpt
     chatgpt = HKBU_ChatGPT(config)
     chatgpt_handler = MessageHandler(Filters.text & (~Filters.command), 
                                      equipped_chatgpt)
     dispatcher.add_handler(chatgpt_handler)
 
-    # 启动机器人
+    # Start the bot
     updater.start_polling()
     updater.idle()
 
 def help_command(update: Update, context: CallbackContext) -> None:
     """Send a message when the command /help is issued."""
     help_text = (
-        "你好，我是一个专业的菜品推荐机器人，提供有以下的功能供你选择：\n"
-        "1. 随机中式菜品推荐：使用 /popular 来随机获取一个推荐中式菜品。\n"
-        "2. 菜品详情查询：使用 /detail 菜品名称 来获取指定菜品的详细信息。\n"
-        "3. 饮食计划定制：使用 /plan 时长 热量（卡路里） 来生成多日饮食计划。\n"
-        "4. 食材推荐：使用 /recommend 食材1 食材2...  来获取相应的菜品推荐。\n"
-        "5. 收藏与历史记录：使用 /collect 菜品名称 来收藏菜品，/history 来查看收藏的菜品列表。\n"
-        "6. 健康分析：使用 /nutrition 菜品名称 来获取菜品的营养成分分析。\n"
-        "7. 删除收藏菜品：使用 /delete 菜品名称 来删除收藏的菜品。\n"
-        "你也可以直接通过问答来获得答案。"
+        "Hello, I'm a professional recipe recommendation bot. Here are the functions I offer:\n"
+        "1. Random popular recipe recommendation: Use /popular to get a randomly recommended popular recipe.\n"
+        "2. Recipe details query: Use /detail <recipe_name> to get detailed information about a specific recipe.\n"
+        "3. Diet plan customization: Use /plan <duration> <calories> to generate a multi - day diet plan.\n"
+        "4. Ingredient - based recipe recommendation: Use /recommend <ingredient1> <ingredient2>... to get recipe recommendations based on the given ingredients.\n"
+        "5. Recipe collection and history: Use /collect <recipe_name> to collect a recipe, and /history to view the list of collected recipes.\n"
+        "6. Nutrition analysis: Use /nutrition <recipe_name> to get the nutritional analysis of a recipe.\n"
+        "7. Delete a collected recipe: Use /delete <recipe_name> to delete a collected recipe.\n"
+        "You can also get answers by directly asking questions."
     )
     update.message.reply_text(help_text)
 
 def clean_reply_message(message):
-    """清理回复消息，去除 #、* 和 - 符号"""
+    """Clean the reply message by removing #, * and - symbols"""
     return message.replace('#', '').replace('*', '').replace('-', '')
 
 def recipe_generation(update: Update, context: CallbackContext) -> None:
-    """生成菜品"""
+    """Generate recipes"""
     try:
         keywords = " ".join(context.args)
-        question = f"生成包含 {keywords} 的菜品列表"
+        question = f"Generate a list of recipes containing {keywords}"
         reply_message = chatgpt.submit(question)
         clean_message = clean_reply_message(reply_message)
         update.message.reply_text(clean_message)
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /recipe 食材 口味')
+        update.message.reply_text('Usage: /recipe <ingredients> <taste>')
 
-# 修改热门菜品推荐函数
 def popular_recipes(update: Update, context: CallbackContext) -> None:
-    """获取一个中式菜品"""
-    question = "给我随机生成一个推荐的中式菜品，要求只返回菜品名称且每次询问你都要返回一个新的菜品（不能与之前的重复）。"
+    """Get a random popular recipe"""
+    question = "Randomly generate a recommended Chinese home cooked dish for me, requiring only the dish name to be returned and a new dish to be returned every time you are asked (cannot be repeated with the previous one)"
     reply_message = chatgpt.submit(question)
-    # 尝试更精准地提取菜品名称，假设菜品名称以数字编号或换行分隔
+    # Try to extract the recipe name more accurately, assuming the recipe name is separated by numbers or line breaks
     import re
-    # 匹配可能的编号格式，如 "1. 菜品名称" 或直接的菜品名称
+    # Match possible numbering formats, such as "1. Recipe Name" or just the recipe name
     pattern = r'(?:\d+\.\s*)?([^\n]+)'
     recipes = re.findall(pattern, reply_message)
     if recipes:
         random_recipe = random.choice(recipes)
-        prompt = f"输入 /detail {random_recipe} 来获取此菜品的做法。"
-        update.message.reply_text(f"随机推荐的热门菜品是：{random_recipe}\n{prompt}")
+        prompt = f"Enter /detail {random_recipe} to get the cooking method of this recipe."
+        update.message.reply_text(f"The randomly recommended popular recipe is: {random_recipe}\n{prompt}")
     else:
-        update.message.reply_text("未获取到热门菜品。")
+        update.message.reply_text("No popular recipes were obtained.")
 
 def recipe_details(update: Update, context: CallbackContext) -> None:
-    """查询菜品详情"""
+    """Query recipe details"""
     try:
         recipe_name = context.args[0]
-        question = f"{recipe_name} 的详细制作步骤"
+        question = f"Detailed cooking steps for {recipe_name}"
         reply_message = chatgpt.submit(question)
         clean_message = clean_reply_message(reply_message)
         update.message.reply_text(clean_message)
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /detail 菜品名称')
+        update.message.reply_text('Usage: /detail <recipe_name>')
 
 def diet_plan(update: Update, context: CallbackContext) -> None:
-    """定制饮食计划"""
+    """Customize a diet plan"""
     try:
         duration = context.args[0]
         calories = context.args[1]
-        question = f"制定 {duration} 的饮食计划，每天热量控制在 {calories} 卡以内"
+        question = f"Develop a {duration} diet plan with a daily calorie limit of {calories} calories."
         reply_message = chatgpt.submit(question)
         clean_message = clean_reply_message(reply_message)
         update.message.reply_text(clean_message)
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /plan 时长 热量')
+        update.message.reply_text('Usage: /plan <duration> <calories>')
 
 def ingredient_recommendation(update: Update, context: CallbackContext) -> None:
-    """食材推荐菜品"""
+    """Recommend recipes based on ingredients"""
     try:
         ingredients = " ".join(context.args)
-        question = f"使用 {ingredients} 可以制作哪些菜品"
+        question = f"What recipes can be made using {ingredients}"
         reply_message = chatgpt.submit(question)
         clean_message = clean_reply_message(reply_message)
         update.message.reply_text(clean_message)
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /recommend 食材1 食材2...')
+        update.message.reply_text('Usage: /recommend <ingredient1> <ingredient2>...')
 
 def collect_recipe(update: Update, context: CallbackContext) -> None:
-    """收藏菜品"""
+    """Collect a recipe"""
     try:
         recipe_name = context.args[0]
-        # 这里可以添加收藏逻辑，例如存储到 redis
+        # Here you can add collection logic, such as storing in redis
         global redis1  # Access the global redis1 variable
         redis1.sadd(f"user_{update.message.from_user.id}_favorites", recipe_name)
-        update.message.reply_text(f"已收藏菜品：{recipe_name}")
+        update.message.reply_text(f"The recipe {recipe_name} has been collected.")
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /collect 菜品名称')
+        update.message.reply_text('Usage: /collect <recipe_name>')
 
 def view_history(update: Update, context: CallbackContext) -> None:
-    """查看历史记录（收藏的菜品列表）"""
+    """View the history (list of collected recipes)"""
     favorites = redis1.smembers(f"user_{update.message.from_user.id}_favorites")
     if favorites:
         favorites_text = "\n".join(favorites)
-        update.message.reply_text(f"收藏的菜品列表：\n{favorites_text}\n可输入 /detail 菜品名称 来获取其具体做法")
+        update.message.reply_text(f"List of collected recipes:\n{favorites_text}\nEnter /detail <recipe_name> to get its specific cooking method.")
     else:
-        update.message.reply_text("暂无收藏的菜品。")
+        update.message.reply_text("No recipes have been collected yet.")
 
 def nutrition_analysis(update: Update, context: CallbackContext) -> None:
-    """营养分析"""
+    """Nutrition analysis"""
     try:
         recipe_name = context.args[0]
-        question = f"{recipe_name} 的营养成分分析"
+        question = f"Nutritional analysis of {recipe_name}"
         reply_message = chatgpt.submit(question)
         clean_message = clean_reply_message(reply_message)
         update.message.reply_text(clean_message)
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /nutrition 菜品名称')
+        update.message.reply_text('Usage: /nutrition <recipe_name>')
 
 def equipped_chatgpt(update, context): 
-    """直接问答处理"""
+    """Direct Q&A processing"""
     help_text = (
-        "你好，我是一个专业的菜品推荐机器人，提供有以下的功能供你选择：\n"
-        "1. 随机中式菜品推荐：使用 /popular 来随机获取一个推荐中式菜品。\n"
-        "2. 菜品详情查询：使用 /detail 菜品名称 来获取指定菜品的详细信息。\n"
-        "3. 饮食计划定制：使用 /plan 时长 热量（卡路里） 来生成多日饮食计划。\n"
-        "4. 食材推荐：使用 /recommend 食材1 食材2...  来获取相应的菜品推荐。\n"
-        "5. 收藏与历史记录：使用 /collect 菜品名称 来收藏菜品，/history 来查看收藏的菜品列表。\n"
-        "6. 健康分析：使用 /nutrition 菜品名称 来获取菜品的营养成分分析。\n"
-        "7. 删除收藏菜品：使用 /delete 菜品名称 来删除收藏的菜品。\n"
-        "输入 /help 查看详细功能用法，也可以依靠直接问答来获得答案。"
+        "Hello, I'm a professional recipe recommendation bot. Here are the functions I offer:\n"
+        "1. Random popular recipe recommendation: Use /popular to get a randomly recommended popular recipe.\n"
+        "2. Recipe details query: Use /detail <recipe_name> to get detailed information about a specific recipe.\n"
+        "3. Diet plan customization: Use /plan <duration> <calories> to generate a multi - day diet plan.\n"
+        "4. Ingredient - based recipe recommendation: Use /recommend <ingredient1> <ingredient2>... to get recipe recommendations based on the given ingredients.\n"
+        "5. Recipe collection and history: Use /collect <recipe_name> to collect a recipe, and /history to view the list of collected recipes.\n"
+        "6. Nutrition analysis: Use /nutrition <recipe_name> to get the nutritional analysis of a recipe.\n"
+        "7. Delete a collected recipe: Use /delete <recipe_name> to delete a collected recipe.\n"
+        "Enter /help to view detailed function usage, or you can directly ask questions to get answers."
     )
     question = update.message.text
     reply_message = chatgpt.submit(question)
@@ -188,14 +187,14 @@ def equipped_chatgpt(update, context):
     update.message.reply_text(help_text)
 
 def delete_recipe(update: Update, context: CallbackContext) -> None:
-    """删除收藏的菜品"""
+    """Delete a collected recipe"""
     try:
         recipe_name = context.args[0]
-        # 从 redis 中删除
+        # Delete from redis
         redis1.srem(f"user_{update.message.from_user.id}_favorites", recipe_name)
-        update.message.reply_text(f"已删除收藏的菜品：{recipe_name}")
+        update.message.reply_text(f"The collected recipe {recipe_name} has been deleted.")
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /delete 菜品名称')
+        update.message.reply_text('Usage: /delete <recipe_name>')
 
 if __name__ == '__main__':
     main()
